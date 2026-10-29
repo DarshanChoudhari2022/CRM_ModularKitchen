@@ -31,10 +31,12 @@ export function CollectionView({
   module,
   initialTab = "invoice",
   financialYearFilter = "all",
+  inlineDetails = false,
 }: {
   module: Module;
   initialTab?: string;
   financialYearFilter?: string;
+  inlineDetails?: boolean;
 }) {
   const { workspace, actor, run, busy, error } = useWorkspace();
   const [search, setSearch] = useState(""),
@@ -154,6 +156,27 @@ export function CollectionView({
       : r.kind === "catalog"
         ? r.rate
         : (r.budget ?? r.amount);
+  if (inlineDetails && selected)
+    return (
+      <RecordDetail
+        inline
+        record={selected}
+        onClose={() => setSelected(null)}
+        onEdit={(r) => {
+          setSelected(null);
+          setEditing(r);
+        }}
+      />
+    );
+  if (inlineDetails && editing !== undefined && financial)
+    return (
+      <QuoteEditor
+        inline
+        invoice={kind === "invoice"}
+        record={editing ?? undefined}
+        onClose={() => setEditing(undefined)}
+      />
+    );
   return (
     <>
       <div className="page-heading">

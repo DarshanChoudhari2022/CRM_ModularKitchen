@@ -67,6 +67,63 @@ function invoiceState(): Workspace {
 }
 
 describe("authoritative pricing", () => {
+  it("inherits the client from a project and rejects cross-client project links", () => {
+    const s = invoiceState();
+    s.records.push({
+      id: "p1",
+      kind: "project",
+      name: "Kitchen project",
+      status: "Design",
+      customerId: "c1",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const bom: CRMRecord = {
+      id: "b1",
+      kind: "bom",
+      name: "Materials",
+      status: "Draft",
+      projectId: "p1",
+      createdAt: now,
+      updatedAt: now,
+    };
+    const saved = execute(s, { type: "save", record: bom }, owner, now);
+    expect(saved.records.find((r) => r.id === "b1")?.customerId).toBe("c1");
+    s.records.push({ ...s.records[0], id: "c2" });
+    expect(() =>
+      execute(
+        s,
+        { type: "save", record: { ...bom, customerId: "c2" } },
+        owner,
+        now,
+      ),
+    ).toThrow(/same client/i);
+  });
+  it("freezes bank details and document design when issuing an invoice", () => {
+    const s = invoiceState();
+    s.settings.bankName = "Test Bank";
+    s.settings.accountNumber = "123456";
+    s.settings.documentTemplate = "modern";
+    const issued = execute(s, { type: "issueInvoice", id: "i1" }, owner, now);
+    expect(
+      issued.records.find((r) => r.id === "i1")?.snapshot?.paymentDetails,
+    ).toBe("Test Bank · 123456");
+    const updated = execute(
+      issued,
+      {
+        type: "settings",
+        settings: { bankName: "New Bank", documentTemplate: "minimal" },
+      },
+      owner,
+      now,
+    );
+    expect(
+      updated.records.find((r) => r.id === "i1")?.snapshot?.documentTemplate,
+    ).toBe("modern");
+    expect(
+      updated.records.find((r) => r.id === "i1")?.snapshot?.paymentDetails,
+    ).toBe("Test Bank · 123456");
+  });
   it("uses elevation area, exact mm conversion, and per-line paise rounding", () => {
     const result = calculateQuote([line]);
     expect(result.total).toBe("19375.04");

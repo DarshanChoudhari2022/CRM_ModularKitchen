@@ -10,10 +10,12 @@ export function QuoteEditor({
   record,
   invoice = false,
   onClose,
+  inline = false,
 }: {
   record?: CRMRecord;
   invoice?: boolean;
   onClose: () => void;
+  inline?: boolean;
 }) {
   const { workspace, run, busy, error } = useWorkspace();
   const [draft, setDraft] = useState<CRMRecord>(() =>
@@ -26,6 +28,7 @@ export function QuoteEditor({
           status: "Draft",
           lines: [blankLine()],
           terms: workspace?.settings.defaultTerms ?? "",
+          signatory: workspace?.settings.signatory ?? "",
           revision: 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -73,6 +76,7 @@ export function QuoteEditor({
     ) ?? [];
   return (
     <Modal
+      inline={inline}
       title={invoice ? "Invoice workspace" : "Quotation workspace"}
       wide
       onClose={onClose}
@@ -100,7 +104,11 @@ export function QuoteEditor({
                   required
                   value={draft.customerId ?? ""}
                   onChange={(e) =>
-                    setDraft({ ...draft, customerId: e.target.value })
+                    setDraft({
+                      ...draft,
+                      customerId: e.target.value,
+                      projectId: undefined,
+                    })
                   }
                 >
                   <option value="">Select customer…</option>
@@ -120,6 +128,9 @@ export function QuoteEditor({
                     setDraft({
                       ...draft,
                       projectId: e.target.value || undefined,
+                      customerId:
+                        workspace?.records.find((r) => r.id === e.target.value)
+                          ?.customerId ?? draft.customerId,
                     })
                   }
                 >
@@ -377,6 +388,25 @@ export function QuoteEditor({
               value={draft.terms ?? ""}
               onChange={(e) => setDraft({ ...draft, terms: e.target.value })}
             />
+            <h3>Finalization</h3>
+            <Field label="Issued By / Signatory">
+              <input
+                value={draft.signatory ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, signatory: e.target.value })
+                }
+              />
+            </Field>
+            <Field label="Notes / Remarks">
+              <textarea
+                maxLength={500}
+                rows={3}
+                value={draft.remarks ?? ""}
+                onChange={(e) =>
+                  setDraft({ ...draft, remarks: e.target.value })
+                }
+              />
+            </Field>
             <Field label="Internal notes / change-order reason">
               <textarea
                 rows={2}
@@ -392,14 +422,60 @@ export function QuoteEditor({
             )}
           </div>
           <aside className="quote-summary">
-            <div className="billing-preview">
+            <div
+              className={`billing-preview template-${workspace?.settings.documentTemplate ?? "classic"}`}
+              style={{
+                borderColor: workspace?.settings.accentColor ?? "#b97843",
+              }}
+            >
               <span className="eyebrow">LIVE DOCUMENT PREVIEW · DRAFT</span>
               <h2>{workspace?.settings.billingName || "Hutāśana Kitchens"}</h2>
               <p>{workspace?.settings.billingAddress}</p>
               <h3>{invoice ? "INVOICE" : "QUOTATION"}</h3>
-              <p>Bill to: {workspace?.records.find(r=>r.id===draft.customerId)?.name || "Select customer"}</p>
-              <table><thead><tr><th>Description</th><th>Qty</th><th>Total</th></tr></thead><tbody>{calculation?.lines.map(l=><tr key={l.id}><td>{l.description || "Item"}<small>{l.hsn}</small></td><td>{l.billableQuantity} {l.unit}</td><td>{inr(l.total)}</td></tr>)}</tbody></table>
-              <p>Taxable: {inr(calculation?.net ?? 0)}</p><p>Tax: {inr(calculation?.tax ?? 0)}</p><h3>Total {inr(calculation?.total ?? 0)}</h3><small>{draft.terms}</small>
+              <p>
+                Bill to:{" "}
+                {workspace?.records.find((r) => r.id === draft.customerId)
+                  ?.name || "Select customer"}
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calculation?.lines.map((l) => (
+                    <tr key={l.id}>
+                      <td>
+                        {l.description || "Item"}
+                        <small>{l.hsn}</small>
+                      </td>
+                      <td>
+                        {l.billableQuantity} {l.unit}
+                      </td>
+                      <td>{inr(l.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p>Taxable: {inr(calculation?.net ?? 0)}</p>
+              <p>Tax: {inr(calculation?.tax ?? 0)}</p>
+              <h3>Total {inr(calculation?.total ?? 0)}</h3>
+              <h4>Payment details</h4>
+              <p>
+                {workspace?.settings.accountName} ·{" "}
+                {workspace?.settings.bankName}
+              </p>
+              <p>
+                A/C: {workspace?.settings.accountNumber} · IFSC:{" "}
+                {workspace?.settings.ifsc}
+              </p>
+              <p>UPI: {workspace?.settings.upi}</p>
+              <small>{draft.terms}</small>
+              <p>{draft.remarks}</p>
+              <p>{draft.signatory}</p>
             </div>
             <span className="eyebrow">COMMERCIAL SUMMARY</span>
             <h3>Made to measure.</h3>

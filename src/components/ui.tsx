@@ -72,18 +72,32 @@ export function Modal({
   children,
   onClose,
   wide = false,
+  inline = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
   wide?: boolean;
+  inline?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = ref.current;
-    el?.showModal();
+    if (!inline) el?.showModal();
     return () => el?.close();
-  }, []);
+  }, [inline]);
+  if (inline)
+    return (
+      <section className="inline-document">
+        <header className="modal-header">
+          <h2>{title}</h2>
+          <button type="button" className="button secondary" onClick={onClose}>
+            ← Back
+          </button>
+        </header>
+        {children}
+      </section>
+    );
   return (
     <dialog
       ref={ref}

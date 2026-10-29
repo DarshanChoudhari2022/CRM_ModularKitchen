@@ -132,6 +132,9 @@ export const recordSchema = z
     disputed: z.boolean().optional(),
     paused: z.boolean().optional(),
     reference: z.string().max(200).optional(),
+    paymentMode: z
+      .enum(["NEFT", "RTGS", "IMPS", "UPI", "Cash", "Cheque", "Card", "Other"])
+      .optional(),
     allocations: z
       .array(z.object({ invoiceId: z.string(), amount: numeric }))
       .optional(),
@@ -158,6 +161,9 @@ export const recordSchema = z
         customerName: z.string(),
         customerAddress: z.string(),
         customerGstin: z.string(),
+        paymentDetails: z.string().max(1000).optional(),
+        documentTemplate: z.enum(["classic", "modern", "minimal"]).optional(),
+        accentColor: z.string().optional(),
         phone: z.string(),
       })
       .optional(),
@@ -172,11 +178,22 @@ export const recordSchema = z
     sourceEventId: z.string().max(200).optional(),
     campaign: z.string().max(200).optional(),
     attachmentPath: z.string().max(500).optional(),
+    signatory: z.string().max(200).optional(),
+    remarks: z.string().max(500).optional(),
     recordingPath: z.string().max(500).optional(),
   })
   .strict();
 export type CRMRecord = z.infer<typeof recordSchema>;
 export interface BusinessSettings {
+  pan?: string;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  upi?: string;
+  signatory?: string;
+  documentTemplate?: "classic" | "modern" | "minimal";
+  accentColor?: string;
   billingName: string;
   billingAddress: string;
   gstin: string;
@@ -232,6 +249,15 @@ export interface Actor {
 export const settingsPatchSchema = z
   .object({
     billingName: z.string().max(200),
+    pan: z.string().max(10),
+    bankName: z.string().max(200),
+    accountName: z.string().max(200),
+    accountNumber: z.string().max(40),
+    ifsc: z.string().max(11),
+    upi: z.string().max(100),
+    signatory: z.string().max(200),
+    documentTemplate: z.enum(["classic", "modern", "minimal"]),
+    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     billingAddress: z.string().max(1000),
     gstin: z.string().max(30),
     phone: z.string().max(30),
@@ -280,6 +306,10 @@ export const commandSchema = z.discriminatedUnion("type", [
     amount: numeric,
     reference: z.string().min(1).max(200),
     receivedOn: z.iso.date(),
+    paymentMode: z
+      .enum(["NEFT", "RTGS", "IMPS", "UPI", "Cash", "Cheque", "Card", "Other"])
+      .optional(),
+    remarks: z.string().max(500).optional(),
   }),
   z.object({
     type: z.literal("allocate"),

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -67,6 +67,12 @@ export function Shell({
   } = useWorkspace();
   const [open, setOpen] = useState(false),
     [globalSearch, setGlobalSearch] = useState("");
+  const navigation = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = navigation.current;
+    if (el)
+      el.scrollTop = Number(sessionStorage.getItem("crm-sidebar-scroll") || 0);
+  }, []);
   const title =
     modules.find((m) => m.slug === section)?.label ??
     {
@@ -96,6 +102,7 @@ export function Shell({
       key={href}
       className={`nav-item ${section === href ? "active" : ""}`}
       href={href === "dashboard" ? "/" : `/${href}`}
+      scroll={false}
       onClick={() => setOpen(false)}
     >
       <Icon size={18} />
@@ -129,9 +136,19 @@ export function Shell({
           </div>
           <ChevronDown size={14} />
         </button>
-        <nav>
+        <nav
+          ref={navigation}
+          onScroll={(e) =>
+            sessionStorage.setItem(
+              "crm-sidebar-scroll",
+              String(e.currentTarget.scrollTop),
+            )
+          }
+        >
           {nav("dashboard", "Overview", LayoutDashboard)}
-          {(["Workspace", "Business", "Operations"] as const).map((group) => (
+          {canRead(actor.role, "invoice") &&
+            nav("invoices", "Invoices", ReceiptIndianRupee)}
+          {(["Workspace", "Operations"] as const).map((group) => (
             <div className="nav-group" key={group}>
               <p>{group}</p>
               {modules
