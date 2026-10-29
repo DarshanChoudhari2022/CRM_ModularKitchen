@@ -392,6 +392,15 @@ export function QuoteEditor({
             )}
           </div>
           <aside className="quote-summary">
+            <div className="billing-preview">
+              <span className="eyebrow">LIVE DOCUMENT PREVIEW · DRAFT</span>
+              <h2>{workspace?.settings.billingName || "Hutāśana Kitchens"}</h2>
+              <p>{workspace?.settings.billingAddress}</p>
+              <h3>{invoice ? "INVOICE" : "QUOTATION"}</h3>
+              <p>Bill to: {workspace?.records.find(r=>r.id===draft.customerId)?.name || "Select customer"}</p>
+              <table><thead><tr><th>Description</th><th>Qty</th><th>Total</th></tr></thead><tbody>{calculation?.lines.map(l=><tr key={l.id}><td>{l.description || "Item"}<small>{l.hsn}</small></td><td>{l.billableQuantity} {l.unit}</td><td>{inr(l.total)}</td></tr>)}</tbody></table>
+              <p>Taxable: {inr(calculation?.net ?? 0)}</p><p>Tax: {inr(calculation?.tax ?? 0)}</p><h3>Total {inr(calculation?.total ?? 0)}</h3><small>{draft.terms}</small>
+            </div>
             <span className="eyebrow">COMMERCIAL SUMMARY</span>
             <h3>Made to measure.</h3>
             <p>Live totals from the specification.</p>

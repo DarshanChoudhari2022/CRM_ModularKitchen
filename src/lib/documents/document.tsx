@@ -9,7 +9,7 @@ import {
 } from "@react-pdf/renderer";
 import type { PropsWithChildren } from "react";
 import type { BusinessSettings, CRMRecord } from "@/domain/types";
-import { calculateQuote } from "@/domain/pricing";
+import { calculateQuote, inr } from "@/domain/pricing";
 
 export function registerDocumentFonts(base: string) {
   Font.register({ family: "Noto", src: `${base}/NotoSans-Regular.ttf` });
@@ -142,6 +142,7 @@ export function FinancialDocument({
   demo?: boolean;
   customer?: CRMRecord;
 }) {
+  if (record.kind === "receipt") return <Document title={record.name}><Page size="A4" style={styles.page}><T style={styles.brand}>{settings.billingName || "Hutāśana Kitchens"}</T><T>{settings.billingAddress}</T><T>PAYMENT RECEIPT · {record.status}</T><T>Receipt ID: {record.id}</T><T>Date: {record.dueDate || record.createdAt.slice(0,10)}</T><T>Received from: {customer?.name || "Client"}</T><T>Amount received: {inr(record.amount || "0")}</T><T>Payment reference: {record.reference}</T>{record.allocations?.map(a=><T key={a.invoiceId}>Allocated to {a.invoiceId}: {inr(a.amount)}</T>)}<T>This acknowledges the recorded payment. Retain the bank reference for reconciliation.</T>{demo && <T>DEMO DOCUMENT</T>}</Page></Document>;
   const c = record.calculation ?? calculateQuote(record.lines ?? []),
     snapshot = record.snapshot ?? {
       billingName: settings.billingName,

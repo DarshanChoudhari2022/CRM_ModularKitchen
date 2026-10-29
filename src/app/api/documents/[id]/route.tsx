@@ -20,7 +20,7 @@ export async function GET(
     const { id } = await params;
     const workspace = await loadWorkspace(ctx.organizationId);
     const record = workspace.records.find(
-      (r) => r.id === id && ["quote", "invoice"].includes(r.kind),
+      (r) => r.id === id && ["quote", "invoice", "receipt"].includes(r.kind),
     );
     if (!record || !canRead(ctx.actor.role, record.kind))
       throw new APIError("Document not found.", 404);

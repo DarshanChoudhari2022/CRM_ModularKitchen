@@ -5,21 +5,39 @@
   font-style: normal;
   font-weight: 100 900;
 }
+/* Shared professional UI type: native sans, no remote font request. */
+body {font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:14px}
+h1,h2,h3,.page-heading h1,.stat-card>strong,.revenue-total>strong,.project-card h3,.login-story h1,.login-inner h2,.welcome-banner h2,.brand>div,.brand-symbol,.brand-mark,.quote-summary h3,.summary-total,.detail-body h2 {font-family:Inter,"Segoe UI",Arial,sans-serif!important;letter-spacing:-.025em}
+.billing-year{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.billing-year select{padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit;min-height:40px}
+.billing-content .page-heading h1{font-size:30px}.billing-content .stat-card>strong{font-size:28px}.billing-content .stats-grid{gap:16px}.billing-content .stat-card{padding:20px}.billing-content .button{min-height:42px}.billing-content .page-heading{margin-bottom:0}
+@media(max-width:800px){.billing-content .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.billing-content .page-heading{flex-wrap:wrap;gap:14px}.billing-header{gap:12px;flex-wrap:wrap}.billing-year{font-size:12px}.billing-content .stat-card>strong{font-size:24px}.billing-nav nav{scrollbar-width:thin}.billing-content .button-group{flex-wrap:wrap}.billing-content .table-scroll{max-width:100%;overflow-x:auto}.modal.wide{width:calc(100vw - 20px);max-width:calc(100vw - 20px)}.quote-layout{display:block}.quote-summary{position:static;width:100%;max-width:100%;margin-top:20px}.quote-main{min-width:0}.line-input input{min-width:0;width:100%}}
+@media(max-width:420px){.billing-content{padding:12px}.billing-content .stat-card{padding:14px}.billing-content .stat-card>strong{font-size:21px}.billing-actions>.button{flex:1 1 45%}.billing-content .page-heading h1{font-size:25px}}
+.billing-layout{display:flex;min-height:100vh;background:var(--bg)}
+.billing-nav{width:230px;flex-shrink:0;background:#191714;color:#e9dfd2;padding:26px 16px;display:flex;flex-direction:column;gap:32px;position:sticky;top:0;height:100vh}
+.billing-brand{font-size:23px;font-weight:750;letter-spacing:1px}.billing-brand small{font-size:9px;letter-spacing:2px;color:#ba9b79}
+.billing-nav nav{display:grid;gap:6px;flex:1;align-content:start}.billing-nav nav a{padding:12px;border-radius:6px}.billing-nav nav a:hover,.billing-nav nav a.active{background:#b97843;color:white}
+.billing-main{min-width:0;flex:1}.billing-header{padding:20px 30px;display:flex;justify-content:space-between;background:var(--paper);border-bottom:1px solid var(--line)}.billing-content{padding:30px;display:grid;gap:22px}.billing-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.billing-start{padding:30px;display:grid;gap:20px}
+.billing-preview{background:#fffdf9;border-top:5px solid #b97843;padding:24px;box-shadow:0 5px 24px #34271b12;margin-bottom:26px;display:grid;gap:12px;color:#24211e}.billing-preview table{font-size:10px;width:100%}.billing-preview th{background:#24211e;color:white}.billing-preview td{padding:8px 3px;border-bottom:1px solid #e5dbcf}.billing-preview small{white-space:pre-wrap}
+.invoice-module-card{display:flex;align-items:center;gap:20px;padding:22px;background:var(--paper);border:1px solid var(--line);border-left:4px solid #b97843;border-radius:10px;margin-bottom:24px}.invoice-module-card>span{font-size:28px;color:#b97843}.invoice-module-card strong{font-size:20px}
+.billing-payment{position:fixed;inset:0;background:#19171488;z-index:80;display:grid;place-items:center;padding:20px}.billing-payment form{padding:28px;display:grid;gap:15px;width:min(500px,100%);max-height:95vh;overflow:auto}.billing-payment label{display:grid;gap:6px}.billing-payment input,.billing-payment select{padding:10px;border:1px solid var(--line);border-radius:5px;width:100%}
+@media(max-width:800px){.billing-layout{display:block}.billing-nav{width:100%;height:auto;position:static;padding:16px;gap:15px}.billing-nav nav{display:flex;overflow:auto}.billing-nav nav a{white-space:nowrap}.billing-content{padding:16px}.billing-header{padding:15px}}
+
 :root {
-  --bg: #f7f8f5;
-  --paper: #fff;
-  --ink: #263b32;
-  --text: #34463e;
-  --muted: #869087;
-  --line: #e7ebe4;
-  --green: #335847;
-  --deep: #284636;
-  --sage: #eaf0e7;
-  --orange: #bb7653;
-  --red: #b15b50;
+  /* Hutāśana website palette: warm ivory, charcoal, copper and stone. */
+  --bg: #f5efe6;
+  --paper: #fffaf3;
+  --ink: #191714;
+  --text: #3f3933;
+  --muted: #7c746b;
+  --line: #e5dbcf;
+  --green: #24211e;
+  --deep: #11100e;
+  --sage: #eee5d9;
+  --orange: #b97843;
+  --red: #a84f3e;
   --radius: 12px;
   --sidebar: 238px;
-  --shadow: 0 5px 24px #243c2c04;
+  --shadow: 0 5px 24px #34271b12;
 }
 * {
   box-sizing: border-box;
@@ -3451,4 +3469,127 @@ tbody tr:hover td {
   .table-scroll {
     overflow: visible;
   }
+}
+
+/* Brand alignment -------------------------------------------------------
+   Keep operational status colours distinct, while bringing neutral UI
+   surfaces and interactive chrome in line with the public website. */
+.sidebar {
+  background: #f8f1e8;
+  border-right-color: #e0d4c7;
+}
+.brand-symbol > span,
+.heading-dot,
+.eyebrow,
+.banner-link,
+.text-link,
+.quiet-link:hover,
+.section-header > svg,
+.date-chip {
+  color: #b97843;
+}
+.brand > div,
+.page-heading h1,
+.section-header h2,
+.stat-card > strong,
+.record-name strong,
+.project-card h3,
+.nav-item,
+.button,
+.workspace-selector > div {
+  color: #191714;
+}
+.brand small,
+.nav-group > p,
+.page-heading p,
+.section-header p,
+.muted,
+.record-name small,
+.project-card p,
+.task-title span,
+.sidebar-bottom {
+  color: #7c746b;
+}
+.workspace-selector,
+.panel,
+.stat-card,
+.project-card,
+.table-scroll,
+.search-results,
+.help-card,
+.user-profile,
+.global-search input,
+.icon-button,
+.button.secondary {
+  background: #fffaf3;
+  border-color: #e5dbcf;
+}
+.studio-icon,
+.stat-icon,
+.sage,
+.badge.green,
+.demo-banner {
+  background: #eee5d9;
+  color: #5f5144;
+}
+.nav-item:hover,
+.nav-item.active,
+.button.secondary:hover,
+.icon-button:hover,
+.quiet-link:hover {
+  background: #eadfd2;
+}
+.nav-item.active {
+  color: #191714;
+  box-shadow: inset 3px 0 #b97843;
+}
+.button.primary,
+.button.primary:hover:not(:disabled),
+.progress-track > span,
+.bar.collected {
+  background: #24211e;
+  border-color: #24211e;
+  color: #fffaf3;
+}
+.button.primary:hover:not(:disabled) {
+  background: #11100e;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: #b97843 !important;
+  box-shadow: 0 0 0 3px #b9784320;
+}
+.button.danger,
+.danger-text,
+.overdue-text {
+  color: #a84f3e !important;
+}
+.login-story {
+  background: #eee8dc;
+  border-right-color: #ded2c4;
+  color: #8a7c6b;
+}
+.brand-mark,
+.login-story h1 {
+  color: #24211e;
+}
+.login-inner > svg {
+  color: #b97843;
+}
+.login-inner > p {
+  color: #7c746b;
+}
+.login-form {
+  background: #f8f1e8;
+}
+body {font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:14px}
+@media(max-width:800px){
+  .billing-layout .billing-content .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .billing-layout .billing-content{padding:16px;min-width:0}
+  .billing-layout .billing-header{flex-wrap:wrap;gap:12px}
+  .billing-layout .billing-nav{width:100%;height:auto;position:static;gap:14px}
+  .billing-layout .billing-nav nav{display:flex;overflow-x:auto}
+  .billing-layout .billing-nav nav a{white-space:nowrap;min-height:44px}
+  .quote-layout{display:block}.quote-summary{position:static;width:auto;margin-top:20px}
 }

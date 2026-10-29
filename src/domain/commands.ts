@@ -670,6 +670,8 @@ export function execute(
       if (invoice?.status === "Draft")
         throw new Error("Issue the invoice before allocating payment.");
       const customerId = invoice?.customerId ?? command.customerId;
+      if (invoice && command.customerId && invoice.customerId !== command.customerId)
+        throw new Error("The selected invoice belongs to a different customer.");
       get(customerId ?? "", "customer");
       if (
         s.records.some(

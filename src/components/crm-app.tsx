@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { modules } from "@/config/modules";
 import { canRead } from "@/domain/commands";
-import { WorkspaceProvider, useWorkspace } from "./workspace-provider";
+import { useWorkspace } from "./workspace-provider";
 import { Shell } from "./shell";
 import { Login } from "./login";
 import { Dashboard } from "./dashboard";
@@ -10,6 +10,7 @@ import { CollectionView } from "./collection-view";
 import { Reports } from "./reports";
 import { Settings } from "./settings";
 import { Integrations } from "./integrations";
+import { InvoiceWorkspace } from "./invoice-workspace";
 function Content({ section }: { section: string }) {
   const { workspace, loading, actor } = useWorkspace();
   if (loading)
@@ -27,6 +28,8 @@ function Content({ section }: { section: string }) {
   if (!workspace) return <Login />;
   const sectionModule = modules.find((m) => m.slug === section);
   let content;
+  if (section === "invoices" || section.startsWith("invoices/"))
+    return <InvoiceWorkspace section={section} />;
   if (sectionModule)
     content = canRead(actor.role, sectionModule.kind) ? (
       <CollectionView key={section} module={sectionModule} />
@@ -70,9 +73,5 @@ function Content({ section }: { section: string }) {
   return <Shell section={section}>{content}</Shell>;
 }
 export function CRMApp({ section }: { section: string }) {
-  return (
-    <WorkspaceProvider>
-      <Content section={section} />
-    </WorkspaceProvider>
-  );
+  return <Content section={section} />;
 }

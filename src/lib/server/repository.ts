@@ -42,15 +42,15 @@ export async function commitCommand(
       409,
     );
   const after = execute(before, command, actor);
+  const oldRecords = new Map(
+    before.records.map((record) => [record.id, record]),
+  );
+  const oldJobs = new Map(before.jobs.map((job) => [job.id, job]));
   const changed = after.records.filter(
-    (r) =>
-      JSON.stringify(r) !==
-      JSON.stringify(before.records.find((old) => old.id === r.id)),
+    (r) => JSON.stringify(r) !== JSON.stringify(oldRecords.get(r.id)),
   );
   const changedJobs = after.jobs.filter(
-    (j) =>
-      JSON.stringify(j) !==
-      JSON.stringify(before.jobs.find((old) => old.id === j.id)),
+    (j) => JSON.stringify(j) !== JSON.stringify(oldJobs.get(j.id)),
   );
   const { error } = await admin().rpc("commit_workspace", {
     p_organization: organizationId,

@@ -13,7 +13,13 @@ import type { CRMRecord } from "@/domain/types";
 import { recordSchema } from "@/domain/types";
 import type { Module } from "@/config/modules";
 import { canWrite, collectionSummary } from "@/domain/commands";
-import { balanceFor, businessDate, documentTotal, inr } from "@/domain/pricing";
+import {
+  balanceFor,
+  businessDate,
+  documentTotal,
+  financialYear,
+  inr,
+} from "@/domain/pricing";
 import { downloadText, exportCSV, parseCSV } from "@/domain/csv";
 import { useWorkspace } from "./workspace-provider";
 import { Avatar, Badge, Empty, FilterBar, Modal } from "./ui";
@@ -21,12 +27,20 @@ import { RecordForm } from "./record-form";
 import { QuoteEditor } from "./quote-editor";
 import { RecordDetail } from "./record-detail";
 
-export function CollectionView({ module }: { module: Module }) {
+export function CollectionView({
+  module,
+  initialTab = "invoice",
+  financialYearFilter = "all",
+}: {
+  module: Module;
+  initialTab?: string;
+  financialYearFilter?: string;
+}) {
   const { workspace, actor, run, busy, error } = useWorkspace();
   const [search, setSearch] = useState(""),
     [status, setStatus] = useState(""),
     [board, setBoard] = useState(false),
-    [tab, setTab] = useState("invoice"),
+    [tab, setTab] = useState(initialTab),
     [editing, setEditing] = useState<CRMRecord | null | undefined>(),
     [selected, setSelected] = useState<CRMRecord | null>(null),
     [importOpen, setImportOpen] = useState(false),
@@ -51,6 +65,13 @@ export function CollectionView({ module }: { module: Module }) {
     workspace.records.find((c) => c.id === r.customerId)?.name ?? "";
   const filtered = records.filter(
     (r) =>
+      (financialYearFilter === "all" ||
+        !["invoice", "quote", "receipt"].includes(r.kind) ||
+        financialYear(
+          r.issuedAt ||
+            (r.kind === "receipt" ? r.dueDate : undefined) ||
+            r.createdAt,
+        ) === financialYearFilter) &&
       (!status || r.status === status) &&
       `${r.name} ${customer(r)} ${r.phone ?? ""} ${r.locality ?? ""} ${r.number ?? ""} ${r.sku ?? ""}`
         .toLowerCase()

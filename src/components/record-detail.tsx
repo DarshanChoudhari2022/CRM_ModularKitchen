@@ -166,7 +166,7 @@ export function RecordDetail({
             {r.revision && <span>Revision {r.revision}</span>}
           </div>
           <div className="button-group">
-            {financial && (
+            {(financial || r.kind === "receipt") && (
               <button
                 className="button secondary"
                 onClick={download}

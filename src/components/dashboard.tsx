@@ -145,6 +145,7 @@ export function Dashboard() {
           })}
         </div>
       </div>
+      <Link href="/invoices" className="invoice-module-card"><span>↗</span><div><strong>Invoices</strong><p>Dashboard, billing, quotations, receipts and kitchen rate cards</p></div></Link>
       <section className="welcome-banner">
         <div>
           <span className="eyebrow">LESS ADMIN. MORE CRAFT.</span>

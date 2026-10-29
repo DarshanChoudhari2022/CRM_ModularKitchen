@@ -11,6 +11,14 @@ import { numberPDF } from "../src/lib/documents/page-numbers";
 import { emptyWorkspace, blankLine } from "../src/domain/seed";
 import { calculateQuote } from "../src/domain/pricing";
 import type { CRMRecord } from "../src/domain/types";
+it("renders a confirmed payment receipt as an A4 PDF", async () => {
+  registerDocumentFonts(path.join(process.cwd(), "public", "fonts"));
+  const record: CRMRecord = { id:"receipt-test",kind:"receipt",name:"Receipt",status:"Confirmed",amount:"25000",reference:"UPI-123",createdAt:"2026-10-29T10:00:00Z",updatedAt:"2026-10-29T10:00:00Z" };
+  const bytes = await renderToBuffer(FinancialDocument({record,settings:emptyWorkspace().settings}));
+  const pdf = await PDFDocument.load(bytes);
+  expect(pdf.getPageCount()).toBe(1);
+  expect(Math.round(pdf.getPage(0).getWidth())).toBe(595);
+});
 it("renders a multi-page Unicode quotation with valid A4 pages and consistent frozen totals", async () => {
   registerDocumentFonts(path.join(process.cwd(), "public", "fonts"));
   const s = emptyWorkspace();
