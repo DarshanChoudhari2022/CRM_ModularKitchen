@@ -142,7 +142,33 @@ export function FinancialDocument({
   demo?: boolean;
   customer?: CRMRecord;
 }) {
-  if (record.kind === "receipt") return <Document title={record.name}><Page size="A4" style={styles.page}><T style={styles.brand}>{settings.billingName || "Hutāśana Kitchens"}</T><T>{settings.billingAddress}</T><T>PAYMENT RECEIPT · {record.status}</T><T>Receipt ID: {record.id}</T><T>Date: {record.dueDate || record.createdAt.slice(0,10)}</T><T>Received from: {customer?.name || "Client"}</T><T>Amount received: {inr(record.amount || "0")}</T><T>Payment reference: {record.reference}</T>{record.allocations?.map(a=><T key={a.invoiceId}>Allocated to {a.invoiceId}: {inr(a.amount)}</T>)}<T>This acknowledges the recorded payment. Retain the bank reference for reconciliation.</T>{demo && <T>DEMO DOCUMENT</T>}</Page></Document>;
+  if (record.kind === "receipt")
+    return (
+      <Document title={record.name}>
+        <Page size="A4" style={styles.page}>
+          <T style={styles.brand}>
+            {settings.billingName || "Hutāśana Kitchens"}
+          </T>
+          <T>{settings.billingAddress}</T>
+          <T>PAYMENT RECEIPT · {record.status}</T>
+          <T>Receipt ID: {record.id}</T>
+          <T>Date: {record.dueDate || record.createdAt.slice(0, 10)}</T>
+          <T>Received from: {customer?.name || "Client"}</T>
+          <T>Amount received: {inr(record.amount || "0")}</T>
+          <T>Payment reference: {record.reference}</T>
+          {record.allocations?.map((a) => (
+            <T key={a.invoiceId}>
+              Allocated to {a.invoiceId}: {inr(a.amount)}
+            </T>
+          ))}
+          <T>
+            This acknowledges the recorded payment. Retain the bank reference
+            for reconciliation.
+          </T>
+          {demo && <T>DEMO DOCUMENT</T>}
+        </Page>
+      </Document>
+    );
   const c = record.calculation ?? calculateQuote(record.lines ?? []),
     snapshot = record.snapshot ?? {
       billingName: settings.billingName,
@@ -158,7 +184,27 @@ export function FinancialDocument({
       title={`${record.number ?? "Draft"} · ${record.name}`}
       author={snapshot?.billingName ?? settings.billingName}
     >
-      <Page size="A4" style={styles.page} wrap>
+      <Page
+        size="A4"
+        style={[
+          styles.page,
+          {
+            borderTopWidth:
+              (record.snapshot?.documentTemplate ??
+                settings.documentTemplate) === "minimal"
+                ? 0
+                : 5,
+            borderTopColor:
+              record.snapshot?.accentColor ?? settings.accentColor ?? "#b97843",
+            backgroundColor:
+              (record.snapshot?.documentTemplate ??
+                settings.documentTemplate) === "modern"
+                ? "#fffaf3"
+                : "#ffffff",
+          },
+        ]}
+        wrap
+      >
         <View style={styles.header} fixed>
           <View>
             <T style={styles.brand}>
@@ -258,6 +304,24 @@ export function FinancialDocument({
             <T>Total</T>
             <T>{rupees(c.total)}</T>
           </View>
+        </View>
+        <View style={styles.terms}>
+          <T style={styles.eyebrow}>PAYMENT DETAILS</T>
+          <T>
+            {record.snapshot
+              ? (record.snapshot.paymentDetails ?? "")
+              : [
+                  settings.accountName,
+                  settings.bankName,
+                  settings.accountNumber,
+                  settings.ifsc,
+                  settings.upi,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+          </T>
+          <T>{record.remarks ?? ""}</T>
+          <T>{record.signatory ?? ""}</T>
         </View>
         <View style={styles.terms}>
           <T style={styles.eyebrow}>TERMS, EXCLUSIONS & WARRANTY</T>

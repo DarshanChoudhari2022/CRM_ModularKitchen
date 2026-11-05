@@ -11,7 +11,7 @@ import {
 import { canRead, canWrite } from "@/domain/commands";
 import { CollectionView } from "./collection-view";
 import { QuoteEditor } from "./quote-editor";
-import { Settings } from "./settings";
+import { PracticeSettings } from "./practice-settings";
 import { useWorkspace } from "./workspace-provider";
 import { kitchenCatalog } from "@/domain/kitchen-catalog";
 const links = [
@@ -87,6 +87,7 @@ export function InvoiceWorkspace({ section }: { section: string }) {
               key={slug}
               className={tab === slug ? "active" : ""}
               href={`/invoices${slug ? `/${slug}` : ""}`}
+              scroll={false}
             >
               {label}
             </Link>
@@ -162,12 +163,13 @@ export function InvoiceWorkspace({ section }: { section: string }) {
                 ))}
               </div>
               <CollectionView
+                inlineDetails
                 module={modules.find((m) => m.kind === "invoice")!}
                 financialYearFilter={fy}
               />
             </>
           )}
-          {tab === "new" && (
+          {tab === "new" && !editor && (
             <section className="panel billing-start">
               <h1>Raise Invoice</h1>
               <p>
@@ -221,16 +223,19 @@ export function InvoiceWorkspace({ section }: { section: string }) {
           )}
           {selectedModule && (
             <CollectionView
+              inlineDetails
               key={tab}
               module={selectedModule}
               financialYearFilter={fy}
               initialTab={tab === "receipts" ? "receipt" : "invoice"}
             />
           )}
-          {tab === "settings" && <Settings />}
+          {tab === "settings" && <PracticeSettings />}
+          {editor && (
+            <QuoteEditor inline invoice onClose={() => setEditor(false)} />
+          )}
         </div>
       </main>
-      {editor && <QuoteEditor invoice onClose={() => setEditor(false)} />}
       {payment && <PaymentForm onClose={() => setPayment(false)} />}
     </div>
   );
@@ -253,6 +258,8 @@ function PaymentForm({ onClose }: { onClose: () => void }) {
               amount: String(data.get("amount")),
               reference: String(data.get("reference")),
               receivedOn: String(data.get("date")),
+              paymentMode: String(data.get("mode")) as "NEFT",
+              remarks: String(data.get("remarks")),
             })
           )
             onClose();
@@ -261,7 +268,12 @@ function PaymentForm({ onClose }: { onClose: () => void }) {
         <h2>Record client payment</h2>
         <label>
           Client
-          <select name="customer" required value={customerId} onChange={e=>setCustomerId(e.target.value)}>
+          <select
+            name="customer"
+            required
+            value={customerId}
+            onChange={(e) => setCustomerId(e.target.value)}
+          >
             <option value="">Select client</option>
             {workspace?.records
               .filter((r) => r.kind === "customer")
@@ -277,7 +289,12 @@ function PaymentForm({ onClose }: { onClose: () => void }) {
           <select name="invoice" key={customerId}>
             <option value="">Advance / on account</option>
             {workspace?.records
-              .filter((r) => r.kind === "invoice" && r.status === "Issued" && r.customerId === customerId)
+              .filter(
+                (r) =>
+                  r.kind === "invoice" &&
+                  r.status === "Issued" &&
+                  r.customerId === customerId,
+              )
               .map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.number} · {r.name}
@@ -301,6 +318,27 @@ function PaymentForm({ onClose }: { onClose: () => void }) {
         <label>
           Bank / UPI / cash reference
           <input name="reference" required maxLength={200} />
+        </label>
+        <label>
+          Payment mode
+          <select name="mode">
+            {[
+              "NEFT",
+              "RTGS",
+              "IMPS",
+              "UPI",
+              "Cash",
+              "Cheque",
+              "Card",
+              "Other",
+            ].map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Remarks
+          <textarea name="remarks" maxLength={500} />
         </label>
         {error && <p role="alert">{error}</p>}
         <div className="button-group">

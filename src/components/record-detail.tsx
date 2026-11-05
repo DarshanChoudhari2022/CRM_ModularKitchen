@@ -36,10 +36,12 @@ export function RecordDetail({
   record,
   onClose,
   onEdit,
+  inline = false,
 }: {
   record: CRMRecord;
   onClose: () => void;
   onEdit: (r: CRMRecord) => void;
+  inline?: boolean;
 }) {
   const { workspace, actor, run, busy, error, demo, notify, refresh } =
     useWorkspace();
@@ -154,6 +156,7 @@ export function RecordDetail({
   };
   return (
     <Modal
+      inline={inline}
       title={r.name}
       wide={financial || r.kind === "customer"}
       onClose={onClose}
@@ -484,7 +487,13 @@ export function RecordDetail({
                         )
                         .map((x) => (
                           <tr key={x.id}>
-                            <td>{x.number ?? "Draft"}</td>
+                            <td>
+                              <a
+                                href={`/invoices/ledger?record=${encodeURIComponent(x.id)}`}
+                              >
+                                {x.number ?? "Draft"}
+                              </a>
+                            </td>
                             <td>{x.dueDate}</td>
                             <td>{inr(documentTotal(x))}</td>
                             <td>{inr(balanceFor(x, workspace.records))}</td>
@@ -494,6 +503,85 @@ export function RecordDetail({
                   </table>
                 </div>
                 <h3 className="subheading">Projects</h3>
+                <h3 className="subheading">Client operations & activity</h3>
+                {workspace.records
+                  .filter(
+                    (x) =>
+                      (x.customerId === r.id ||
+                        (!x.customerId &&
+                          workspace.records.some(
+                            (p) =>
+                              p.kind === "project" &&
+                              p.id === x.projectId &&
+                              p.customerId === r.id,
+                          ))) &&
+                      [
+                        "bom",
+                        "survey",
+                        "purchase",
+                        "service",
+                        "changeOrder",
+                        "task",
+                        "call",
+                      ].includes(x.kind),
+                  )
+                  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                  .map((x) => (
+                    <div className="audit-row" key={x.id}>
+                      <div>
+                        <a
+                          href={`/${({ bom: "bom", survey: "surveys", purchase: "purchases", service: "service", changeOrder: "changes", task: "tasks", call: "calls" } as Record<string, string>)[x.kind]}?record=${encodeURIComponent(x.id)}`}
+                        >
+                          {x.name}
+                        </a>
+                        <small>
+                          {x.kind} ·{" "}
+                          {workspace.records.find((p) => p.id === x.projectId)
+                            ?.name ?? "Client record"}{" "}
+                          · {x.updatedAt.slice(0, 10)}
+                        </small>
+                      </div>
+                      <Badge>{x.status}</Badge>
+                    </div>
+                  ))}
+                <h3 className="subheading">Quotations and payment history</h3>
+                {workspace.records
+                  .filter(
+                    (x) =>
+                      x.customerId === r.id &&
+                      ["quote", "receipt"].includes(x.kind),
+                  )
+                  .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+                  .map((x) => (
+                    <div className="audit-row" key={x.id}>
+                      <div>
+                        <a
+                          href={`/invoices/${x.kind === "quote" ? "quotations" : "receipts"}?record=${encodeURIComponent(x.id)}`}
+                        >
+                          {x.number ?? x.name}
+                        </a>
+                        <small>
+                          {x.dueDate || x.createdAt.slice(0, 10)} · {x.status} ·{" "}
+                          {x.paymentMode}
+                        </small>
+                        {x.allocations?.map((a, i) => (
+                          <small key={i}>
+                            {workspace.records.find(
+                              (inv) => inv.id === a.invoiceId,
+                            )?.number ?? a.invoiceId}
+                            : {inr(a.amount)}
+                          </small>
+                        ))}
+                      </div>
+                      <strong>
+                        {inr(
+                          x.kind === "receipt"
+                            ? (x.amount ?? "0")
+                            : documentTotal(x),
+                        )}
+                      </strong>
+                    </div>
+                  ))}
                 {workspace.records
                   .filter((x) => x.kind === "project" && x.customerId === r.id)
                   .map((x) => (

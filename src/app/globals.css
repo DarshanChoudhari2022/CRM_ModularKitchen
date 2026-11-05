@@ -3583,6 +3583,8 @@ select:focus {
 .login-form {
   background: #f8f1e8;
 }
+.inline-document{min-width:0;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden}.inline-document>.modal-header{position:static}.inline-document>.detail-body,.inline-document>form{padding:24px}.inline-document .quote-layout{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:24px}.inline-document .quote-summary{width:auto;min-width:0}.practice-settings{display:grid;gap:22px}.practice-settings>form{padding:26px;display:grid;gap:24px}.template-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}.template-option{background:white;border:2px solid var(--line);border-radius:8px;padding:24px;text-align:left;min-height:190px}.template-option[aria-pressed=true]{border-color:#b97843;box-shadow:0 0 0 2px #b9784322}.template-modern{background:#f6efe6}.template-minimal{border-top:0!important;box-shadow:none}.template-classic{border-top:5px solid #b97843}.billing-preview h4{margin:0}
+@media(max-width:800px){.inline-document .quote-layout{display:block}.inline-document>form,.inline-document>.detail-body{padding:14px}.template-options{grid-template-columns:1fr}.inline-document .quote-summary{margin-top:20px}}
 body {font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:14px}
 @media(max-width:800px){
   .billing-layout .billing-content .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}

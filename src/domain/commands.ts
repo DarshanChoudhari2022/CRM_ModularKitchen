@@ -306,6 +306,35 @@ export function execute(
     };
     if (record.customerId) linked(record.customerId, "customer");
     if (record.projectId) linked(record.projectId, "project");
+    const linkedProject = record.projectId
+      ? s.records.find((r) => r.id === record.projectId && r.kind === "project")
+      : undefined;
+    if (linkedProject) {
+      if (!linkedProject.customerId)
+        throw new Error(
+          "Select a customer for the project before linking records.",
+        );
+      if (record.customerId && record.customerId !== linkedProject.customerId)
+        throw new Error("Project and customer must belong to the same client.");
+      record.customerId = linkedProject.customerId;
+    }
+    if (
+      ["project", "bom", "survey", "service", "changeOrder"].includes(
+        record.kind,
+      ) &&
+      !record.customerId
+    )
+      throw new Error(
+        "Select a customer or a customer-linked project for this record.",
+      );
+    if (
+      existing?.kind === "project" &&
+      existing.customerId !== record.customerId &&
+      s.records.some((r) => r.projectId === existing.id)
+    )
+      throw new Error(
+        "This project has linked records. Its customer cannot be changed.",
+      );
     const clean = {
       ...record,
       createdAt: existing?.createdAt ?? now,
@@ -456,6 +485,17 @@ export function execute(
         const customer = get(record.customerId, "customer");
         record.calculation = calculateQuote(record.lines ?? []);
         record.snapshot = {
+          paymentDetails: [
+            s.settings.accountName,
+            s.settings.bankName,
+            s.settings.accountNumber,
+            s.settings.ifsc,
+            s.settings.upi,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          documentTemplate: s.settings.documentTemplate,
+          accentColor: s.settings.accentColor,
           billingName: s.settings.billingName,
           billingAddress: s.settings.billingAddress,
           gstin: s.settings.gstin,
@@ -648,6 +688,17 @@ export function execute(
           "Invoice number exceeds 16 characters. Shorten the prefix or review numbering with your accountant.",
         );
       invoice.snapshot = {
+        paymentDetails: [
+          s.settings.accountName,
+          s.settings.bankName,
+          s.settings.accountNumber,
+          s.settings.ifsc,
+          s.settings.upi,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        documentTemplate: s.settings.documentTemplate,
+        accentColor: s.settings.accentColor,
         billingName: s.settings.billingName,
         billingAddress: s.settings.billingAddress,
         gstin: s.settings.gstin,
@@ -670,8 +721,14 @@ export function execute(
       if (invoice?.status === "Draft")
         throw new Error("Issue the invoice before allocating payment.");
       const customerId = invoice?.customerId ?? command.customerId;
-      if (invoice && command.customerId && invoice.customerId !== command.customerId)
-        throw new Error("The selected invoice belongs to a different customer.");
+      if (
+        invoice &&
+        command.customerId &&
+        invoice.customerId !== command.customerId
+      )
+        throw new Error(
+          "The selected invoice belongs to a different customer.",
+        );
       get(customerId ?? "", "customer");
       if (
         s.records.some(
@@ -691,6 +748,8 @@ export function execute(
         id: id(),
         kind: "receipt",
         name: `Receipt · ${command.reference}`,
+        paymentMode: command.paymentMode,
+        remarks: command.remarks,
         status: "Confirmed",
         customerId,
         amount: money(value),

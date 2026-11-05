@@ -181,6 +181,7 @@ export function RecordForm({
                       setDraft({
                         ...draft,
                         customerId: e.target.value || undefined,
+                        projectId: undefined,
                       })
                     }
                   >
@@ -202,12 +203,21 @@ export function RecordForm({
                         setDraft({
                           ...draft,
                           projectId: e.target.value || undefined,
+                          customerId:
+                            workspace?.records.find(
+                              (r) => r.id === e.target.value,
+                            )?.customerId ?? draft.customerId,
                         })
                       }
                     >
                       <option value="">Select project…</option>
                       {workspace?.records
-                        .filter((r) => r.kind === "project")
+                        .filter(
+                          (r) =>
+                            r.kind === "project" &&
+                            (!draft.customerId ||
+                              r.customerId === draft.customerId),
+                        )
                         .map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}
