@@ -84,7 +84,10 @@ export async function getOrCreateContact(
     if (existing.phone_number !== phoneNumber) {
       const { data, error } = await admin()
         .from("whatsapp_contacts")
-        .update({ phone_number: phoneNumber, updated_at: new Date().toISOString() })
+        .update({
+          phone_number: phoneNumber,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existing.id)
         .select()
         .single();
@@ -193,11 +196,15 @@ export async function updateMessageStatus(
     readAt?: string;
   },
 ): Promise<WhatsAppMessage | null> {
-  const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fields: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
   if (updates.status) fields.status = updates.status;
-  if (updates.providerMessageId !== undefined) fields.provider_message_id = updates.providerMessageId;
+  if (updates.providerMessageId !== undefined)
+    fields.provider_message_id = updates.providerMessageId;
   if (updates.errorCode !== undefined) fields.error_code = updates.errorCode;
-  if (updates.errorMessage !== undefined) fields.error_message = updates.errorMessage;
+  if (updates.errorMessage !== undefined)
+    fields.error_message = updates.errorMessage;
   if (updates.sentAt) fields.sent_at = updates.sentAt;
   if (updates.deliveredAt) fields.delivered_at = updates.deliveredAt;
   if (updates.readAt) fields.read_at = updates.readAt;
@@ -306,7 +313,9 @@ export async function updateFollowupStatus(
     skipReason?: string;
   },
 ): Promise<QuotationFollowup | null> {
-  const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fields: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
   if (updates.status) fields.status = updates.status;
   if (updates.attempts !== undefined) fields.attempts = updates.attempts;
   if (updates.completedAt) fields.completed_at = updates.completedAt;
@@ -361,13 +370,27 @@ export async function saveWebhookEvent(
   eventType: string,
   payload: unknown,
 ): Promise<void> {
-  const { error } = await admin()
-    .from("webhook_events")
-    .insert({
-      organization_id: organizationId,
-      provider_event_id: providerEventId,
-      event_type: eventType,
-      payload_json: payload,
-    });
+  const { error } = await admin().from("webhook_events").insert({
+    organization_id: organizationId,
+    provider_event_id: providerEventId,
+    event_type: eventType,
+    payload_json: payload,
+  });
   if (error) throw new APIError(error.message, 500);
+}
+
+/** Atomically persist and apply an authenticated provider event. */
+export async function processWhatsAppEvent(
+  organizationId: string,
+  providerEventId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await admin().rpc("process_whatsapp_event", {
+    p_organization: organizationId,
+    p_provider_id: providerEventId,
+    p_event_type: eventType,
+    p_payload: payload,
+  });
+  if (error) throw new APIError("Could not persist WhatsApp event.", 503);
 }
