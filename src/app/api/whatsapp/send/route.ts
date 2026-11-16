@@ -1,212 +1,201 @@
 import { NextResponse } from "next/server";
+import { renderToBuffer } from "@react-pdf/renderer";
+import path from "node:path";
 import { z } from "zod";
-import { failure, readJSON } from "@/lib/server/http";
-import { APIError, sessionClient, admin } from "@/lib/server/supabase";
-import { commitCommand } from "@/lib/server/repository";
-import type { Actor } from "@/domain/types";
+import { assertOrigin, failure, readJSON } from "@/lib/server/http";
+import { APIError, context } from "@/lib/server/supabase";
+import { commitCommand, loadWorkspace } from "@/lib/server/repository";
+import { canWrite } from "@/domain/commands";
+import { businessDate, documentTotal } from "@/domain/pricing";
+import {
+  FinancialDocument,
+  registerDocumentFonts,
+} from "@/lib/documents/document";
+import { numberPDF } from "@/lib/documents/page-numbers";
 import {
   uploadMedia,
   sendDocumentMessage,
   sendTemplateMessage,
-  WhatsAppApiError,
 } from "@/lib/whatsapp/service";
 import { isWhatsAppConfigured } from "@/lib/whatsapp/config";
 import {
-  getOrCreateContact,
+  getContact,
+  getMessagesForQuotation,
   createMessage,
   updateMessageStatus,
   createFollowup,
 } from "@/lib/whatsapp/repository";
 
-const sendSchema = z.object({
-  quotationId: z.string().min(1).max(100),
-  customerId: z.string().min(1).max(100),
-  phoneNumber: z.string().min(1).max(30),
-  templateName: z.string().optional(),
-});
+export const runtime = "nodejs";
+const sendSchema = z
+  .object({
+    quotationId: z.string().min(1).max(100),
+    customerId: z.string().min(1).max(100),
+    phoneNumber: z.string().min(1).max(30),
+    templateName: z.string().trim().min(1).max(512).optional(),
+  })
+  .strict();
+const normalizePhone = (phone: string) => phone.replace(/[\s()+-]/g, "");
 
 export async function POST(request: Request) {
   try {
+    assertOrigin(request);
+    const { organizationId, actor } = await context();
+    if (!canWrite(actor.role, "quote"))
+      throw new APIError("Insufficient permissions to send quotations.", 403);
     if (process.env.NEXT_PUBLIC_DEMO_MODE === "true")
       throw new APIError("WhatsApp sending is disabled in demo mode.", 503);
-
     if (!isWhatsAppConfigured())
-      throw new APIError(
-        "WhatsApp is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.",
-        503,
-      );
-
+      throw new APIError("WhatsApp is not configured.", 503);
     const input = sendSchema.parse(await readJSON(request));
-
-    const client = await sessionClient();
-    const { data: { user }, error: authError } = await client.auth.getUser();
-    if (authError || !user) throw new APIError("Sign in to continue.", 401);
-
-    const { data: membership } = await admin()
-      .from("memberships")
-      .select("organization_id, role")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    if (!membership || !["owner", "estimator", "sales", "accounts"].includes(membership.role))
-      throw new APIError("Insufficient permissions to send quotations.", 403);
-
-    const organizationId = membership.organization_id;
-    const actor: Actor = { userId: user.id, role: membership.role };
-
-    // Load the quotation record
-    const { data: records } = await client
-      .from("crm_records")
-      .select("data")
-      .eq("organization_id", organizationId)
-      .eq("kind", "quote")
-      .eq("data->>'id'", input.quotationId)
-      .maybeSingle();
-
-    if (!records?.data) throw new APIError("Quotation not found.", 404);
-
-    const quote = records.data as unknown as {
-      id: string;
-      customerId: string;
-      status: string;
-      number?: string;
-      name?: string;
-      amount?: string;
-      files?: Array<{ path: string }>;
-      attachmentPath?: string;
-      _revision?: number;
-    };
+    let workspace = await loadWorkspace(organizationId);
+    let quote = workspace.records.find(
+      (r) => r.kind === "quote" && r.id === input.quotationId,
+    );
+    if (!quote) throw new APIError("Quotation not found.", 404);
     if (quote.customerId !== input.customerId)
-      throw new APIError("Customer does not match the quotation.", 400);
-
-    // Check if quote is sendable
-    if (quote.status === "sent" || quote.status === "accepted")
-      throw new APIError("Quotation is already sent or accepted.", 400);
-
-    // Get or create contact
-    let contact;
-    try {
-      contact = await getOrCreateContact(organizationId, input.customerId, input.phoneNumber);
-    } catch {
-      // Continue; contact will be created on first use
-    }
-
-    // Determine if we can send free-form or need a template
-    const canSendFreeForm = contact?.optInStatus === "opted_in";
-    const templateName = input.templateName;
-
-    // Get the PDF object key from the quote record
-    const pdfObjectKey = quote.files?.[0]?.path || quote.attachmentPath;
-    if (!pdfObjectKey) throw new APIError("No PDF found for this quotation. Generate one first.", 400);
-
-    let providerMessageId: string;
-    let messageType: "document" | "template" = "document";
-
-    if (!canSendFreeForm && !templateName) {
+      throw new APIError("Customer does not match the quotation.");
+    if (!["Draft", "Shared"].includes(quote.status))
+      throw new APIError("Only draft or shared quotations can be sent.");
+    const customerId = quote.customerId;
+    const customer = workspace.records.find(
+      (r) => r.kind === "customer" && r.id === customerId,
+    );
+    const phone = normalizePhone(customer?.phone ?? "");
+    if (
+      !customer ||
+      !/^[1-9]\d{7,14}$/.test(phone) ||
+      phone !== normalizePhone(input.phoneNumber)
+    )
       throw new APIError(
-        "Customer has not opted in. Use an approved template or collect consent first.",
+        "Use the quotation customer's saved international phone number.",
+      );
+    const contact = await getContact(organizationId, customer.id);
+    if (!customer.consent || contact?.optInStatus === "opted_out")
+      throw new APIError(
+        "Recorded customer permission is required before sending.",
         403,
       );
-    }
-
-    if (templateName && !canSendFreeForm) {
-      // Send template message (outside 24h window or no opt-in)
-      const result = await sendTemplateMessage(
-        input.phoneNumber,
-        templateName,
-        "en",
-        [
-          { type: "text", text: quote.customerId || "Customer" },
-          { type: "text", text: quote.number || input.quotationId },
-          { type: "text", text: quote.amount || "0" },
-        ],
+    const windowOpen =
+      !!contact &&
+      normalizePhone(contact.phoneNumber) === phone &&
+      new Date(contact.serviceWindowExpiresAt ?? "").getTime() > Date.now();
+    if (!windowOpen && !input.templateName)
+      throw new APIError(
+        "The customer service window is closed. Use an approved template.",
+        403,
       );
-      providerMessageId = result.providerMessageId;
-      messageType = "template";
-    } else {
-      // Upload PDF and send as document message
-      // Fetch PDF from storage
-      const { data: fileData, error: fileError } = await client.storage
-        .from("crm-private")
-        .download(pdfObjectKey);
-
-      if (fileError || !fileData) throw new APIError("Could not retrieve PDF from storage.", 500);
-
-      const buffer = Buffer.from(await fileData.arrayBuffer());
-      const mediaId = await uploadMedia(buffer, pdfObjectKey.split("/").pop() ?? "quotation.pdf", "application/pdf");
-
-      const result = await sendDocumentMessage(
-        input.phoneNumber,
-        mediaId,
-        `Quotation ${quote.number || input.quotationId} from ${quote.name || "your kitchen partner"}.`,
-        `quotation-${quote.number || input.quotationId}.pdf`,
+    const existing = await getMessagesForQuotation(organizationId, quote.id);
+    if (
+      existing.some((m) => m.direction === "outbound" && m.status !== "failed")
+    )
+      throw new APIError(
+        "This quotation already has a submitted or unresolved message. Reconcile before retrying.",
+        409,
       );
-      providerMessageId = result.providerMessageId;
-      messageType = "document";
-    }
 
-    // Create the WhatsApp message record
-    const message = await createMessage(organizationId, {
-      quotationId: input.quotationId,
-      customerId: input.customerId,
-      phoneNumber: input.phoneNumber,
-      direction: "outbound",
-      messageType,
-      templateName,
-      pdfObjectKey,
-    });
-
-    // Update message with provider ID and sent status
-    await updateMessageStatus(message.id, {
-      status: "sent",
-      providerMessageId,
-      sentAt: new Date().toISOString(),
-    });
-
-    // Update quotation status to "sent" via domain command
-    try {
-      await commitCommand(
+    // Freeze authoritative rates, terms and billing identity before external submission.
+    if (quote.status === "Draft") {
+      workspace = await commitCommand(
         organizationId,
         actor,
-        {
-          type: "transition",
-          id: input.quotationId,
-          status: "sent",
-          evidence: `Sent via WhatsApp to ${input.phoneNumber} (message ${providerMessageId})`,
-        },
-        quote._revision ?? 0,
+        { type: "transition", id: quote.id, status: "Shared" },
+        workspace.revision,
       );
-    } catch {
-      // If revision conflict, the message is still recorded; quote status update can be retried
+      quote = workspace.records.find((r) => r.id === input.quotationId)!;
     }
-
-    // Schedule a next-day follow-up (per blueprint: one next-day follow-up)
-    const followupDate = new Date();
-    followupDate.setDate(followupDate.getDate() + 1);
-    followupDate.setHours(10, 0, 0, 0); // 10 AM local time
-
+    const messageType = input.templateName ? "template" : "document";
+    let mediaId: string | undefined;
+    const filename = `quotation-${quote.number ?? quote.id}.pdf`;
+    if (messageType === "document") {
+      registerDocumentFonts(path.join(process.cwd(), "public", "fonts"));
+      const bytes = await renderToBuffer(
+        FinancialDocument({
+          record: quote,
+          settings: workspace.settings,
+          customer,
+        }),
+      );
+      const numbered = await numberPDF(bytes);
+      mediaId = await uploadMedia(
+        Buffer.from(numbered),
+        filename,
+        "application/pdf",
+      );
+      if (!mediaId)
+        throw new APIError("Media upload returned no identifier.", 502);
+    }
+    // Persist intent first. A crash leaves a pending record that blocks blind retries.
+    const message = await createMessage(organizationId, {
+      quotationId: quote.id,
+      customerId: customer.id,
+      phoneNumber: phone,
+      direction: "outbound",
+      messageType,
+      templateName: input.templateName,
+    });
+    let providerMessageId: string;
+    try {
+      const result =
+        messageType === "template"
+          ? await sendTemplateMessage(phone, input.templateName!, "en", [
+              { type: "text", text: customer.name },
+              { type: "text", text: quote.number ?? quote.id },
+              { type: "text", text: documentTotal(quote) },
+            ])
+          : await sendDocumentMessage(
+              phone,
+              mediaId!,
+              `Quotation ${quote.number ?? quote.id}`,
+              filename,
+            );
+      providerMessageId = result.providerMessageId;
+      if (!providerMessageId)
+        throw new Error("Missing provider acknowledgement");
+      const recorded = await updateMessageStatus(message.id, {
+        status: "sent",
+        providerMessageId,
+        sentAt: new Date().toISOString(),
+      });
+      if (!recorded) throw new Error("Message outcome could not be saved");
+    } catch {
+      // Never interpret a timeout or persistence failure as proof that nothing was sent.
+      try {
+        await updateMessageStatus(message.id, { status: "unknown" });
+      } catch {
+        /* Pending also blocks retries. */
+      }
+      return NextResponse.json(
+        {
+          error:
+            "Submission outcome is uncertain. Reconcile with the provider before retrying.",
+          messageId: message.id,
+          status: "unknown",
+        },
+        { status: 502 },
+      );
+    }
+    // Next calendar day at 10:00 India time, independent of the server timezone.
+    const tomorrow = new Date(`${businessDate()}T00:00:00+05:30`);
+    tomorrow.setTime(tomorrow.getTime() + 86400000 + 10 * 3600000);
+    let followupScheduled = true;
     try {
       await createFollowup(organizationId, {
-        quotationId: input.quotationId,
-        customerId: input.customerId,
-        scheduledAt: followupDate.toISOString(),
+        quotationId: quote.id,
+        customerId: customer.id,
+        scheduledAt: tomorrow.toISOString(),
       });
     } catch {
-      // Non-fatal: follow-up scheduling failure shouldn't block the send
+      followupScheduled = false;
     }
-
     return NextResponse.json({
       ok: true,
       messageId: message.id,
       providerMessageId,
       status: "sent",
+      followupScheduled,
     });
-  } catch (e) {
-    if (e instanceof WhatsAppApiError) {
-      return NextResponse.json(
-        { error: e.message, providerCode: e.providerCode },
-        { status: e.status },
-      );
-    }
-    return failure(e);
+  } catch (error) {
+    return failure(error);
   }
 }

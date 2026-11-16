@@ -1,5 +1,5 @@
-import { whatsappConfig, isWhatsAppConfigured } from './config';
-import type { WhatsAppMessageStatus } from './types';
+import { whatsappConfig, isWhatsAppConfigured } from "./config";
+import type { WhatsAppMessageStatus } from "./types";
 
 class WhatsAppApiError extends Error {
   constructor(
@@ -8,39 +8,53 @@ class WhatsAppApiError extends Error {
     public providerCode?: string,
   ) {
     super(message);
-    this.name = 'WhatsAppApiError';
+    this.name = "WhatsAppApiError";
   }
 }
 
 function buildHeaders() {
   if (!isWhatsAppConfigured()) {
-    throw new WhatsAppApiError('WhatsApp is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.', 503);
+    throw new WhatsAppApiError(
+      "WhatsApp is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.",
+      503,
+    );
   }
   return {
     Authorization: `Bearer ${whatsappConfig.accessToken}`,
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
 }
 
-export async function uploadMedia(fileBuffer: Buffer, filename: string, mimeType: string): Promise<string> {
+export async function uploadMedia(
+  fileBuffer: Buffer,
+  filename: string,
+  mimeType: string,
+): Promise<string> {
   const formData = new FormData();
-  const blob = new Blob([fileBuffer as unknown as BlobPart], { type: mimeType });
-  formData.append('file', blob, filename);
-  formData.append('type', mimeType);
-  formData.append('messaging_product', 'whatsapp');
-
-  const response = await fetch(`${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/media`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${whatsappConfig.accessToken}`,
-    },
-    body: formData,
+  const blob = new Blob([fileBuffer as unknown as BlobPart], {
+    type: mimeType,
   });
+  formData.append("file", blob, filename);
+  formData.append("type", mimeType);
+  formData.append("messaging_product", "whatsapp");
+
+  const response = await fetch(
+    `${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/media`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: {
+        Authorization: `Bearer ${whatsappConfig.accessToken}`,
+      },
+      body: formData,
+    },
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new WhatsAppApiError(
-      data.error?.message ?? `Media upload failed with status ${response.status}`,
+      data.error?.message ??
+        `Media upload failed with status ${response.status}`,
       response.status,
       data.error?.code,
     );
@@ -55,89 +69,102 @@ export async function sendDocumentMessage(
   filename?: string,
 ): Promise<{ providerMessageId: string }> {
   const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
     to,
-    type: 'document',
+    type: "document",
     document: {
-      link: '', // We use media_id instead; Meta accepts either link or id depending on API version
       id: mediaId,
       caption,
       filename,
     },
   };
 
-  const response = await fetch(`${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify(body),
-  });
+  const response = await fetch(
+    `${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new WhatsAppApiError(
-      data.error?.message ?? `Send document failed with status ${response.status}`,
+      data.error?.message ??
+        `Send document failed with status ${response.status}`,
       response.status,
       data.error?.code,
     );
   }
   const messages = data.messages as Array<{ id: string }> | undefined;
-  return { providerMessageId: messages?.[0]?.id ?? '' };
+  return { providerMessageId: messages?.[0]?.id ?? "" };
 }
 
 export async function sendTemplateMessage(
   to: string,
   templateName: string,
   languageCode: string,
-  parameters: Array<{ type: 'text'; text: string }>,
+  parameters: Array<{ type: "text"; text: string }>,
 ): Promise<{ providerMessageId: string }> {
   const body = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
     to,
-    type: 'template',
+    type: "template",
     template: {
       name: templateName,
       language: { code: languageCode },
       components: [
         {
-          type: 'body',
+          type: "body",
           parameters,
         },
       ],
     },
   };
 
-  const response = await fetch(`${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify(body),
-  });
+  const response = await fetch(
+    `${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new WhatsAppApiError(
-      data.error?.message ?? `Send template failed with status ${response.status}`,
+      data.error?.message ??
+        `Send template failed with status ${response.status}`,
       response.status,
       data.error?.code,
     );
   }
   const messages = data.messages as Array<{ id: string }> | undefined;
-  return { providerMessageId: messages?.[0]?.id ?? '' };
+  return { providerMessageId: messages?.[0]?.id ?? "" };
 }
 
 export async function markMessageAsRead(messageId: string): Promise<void> {
   const body = {
-    messaging_product: 'whatsapp',
-    status: 'read',
+    messaging_product: "whatsapp",
+    status: "read",
     message_id: messageId,
   };
 
-  const response = await fetch(`${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify(body),
-  });
+  const response = await fetch(
+    `${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
 
   if (!response.ok) {
     // Non-fatal: marking as read is a best-effort UX signal
@@ -172,7 +199,12 @@ export interface WhatsAppWebhookEntry {
           recipient_id: string;
           conversation?: { id: string; origin: { type: string } };
           pricing?: { billing_category: string; code: string };
-          errors?: Array<{ code: string; title: string; message: string; error_data?: unknown }>;
+          errors?: Array<{
+            code: string;
+            title: string;
+            message: string;
+            error_data?: unknown;
+          }>;
         }>;
         errors?: Array<{ code: string; message: string; error_data?: unknown }>;
       };
@@ -182,9 +214,9 @@ export interface WhatsAppWebhookEntry {
 }
 
 export function parseWebhook(payload: unknown): WhatsAppWebhookEntry | null {
-  if (!payload || typeof payload !== 'object') return null;
+  if (!payload || typeof payload !== "object") return null;
   const obj = payload as Record<string, unknown>;
-  if (obj.object !== 'whatsapp_business_account') return null;
+  if (obj.object !== "whatsapp_business_account") return null;
   return obj as unknown as WhatsAppWebhookEntry;
 }
 
