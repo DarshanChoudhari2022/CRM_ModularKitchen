@@ -19,6 +19,7 @@ import {
 } from "@/domain/pricing";
 import { useWorkspace } from "./workspace-provider";
 import { Avatar, Badge, Field, Modal } from "./ui";
+import { QuoteWhatsApp } from "./quote-whatsapp";
 type Action =
   | "receive"
   | "credit"
@@ -741,6 +742,13 @@ export function RecordDetail({
                 </button>
               )}
           </div>
+        )}
+        {r.kind === "quote" && (
+          <QuoteWhatsApp
+            quote={r}
+            customer={customer}
+            canSend={writable}
+          />
         )}
         {r.kind === "quote" &&
           r.status === "Accepted" &&

@@ -40,7 +40,7 @@ vi.mock("@/lib/whatsapp/repository", () => ({
 vi.mock("@/lib/whatsapp/service", () => ({
   uploadMedia: mocks.upload,
   sendDocumentMessage: mocks.document,
-  sendTemplateMessage: mocks.template,
+  sendDocumentTemplateMessage: mocks.template,
 }));
 vi.mock("@react-pdf/renderer", () => ({ renderToBuffer: mocks.render }));
 vi.mock("@/lib/documents/document", () => ({
@@ -86,6 +86,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
   vi.stubEnv("NEXT_PUBLIC_APP_URL", "http://localhost");
+  vi.stubEnv("WHATSAPP_QUOTE_TEMPLATE_NAME", "quotation_document_v1");
+  vi.stubEnv("WHATSAPP_QUOTE_TEMPLATE_LANGUAGE", "en");
   mocks.context.mockResolvedValue({
     organizationId: "org",
     actor: { userId: "owner", role: "owner" },
@@ -150,30 +152,43 @@ it("rejects terminal quotes and a different destination", async () => {
   expect((await POST(request())).status).toBe(400);
   expect(mocks.create).not.toHaveBeenCalled();
 });
-it("requires consent even for templates and honors opt-out", async () => {
+it("requires consent and honors opt-out", async () => {
   mocks.load.mockResolvedValue({
     ...workspace(),
     records: [quote, { ...customer, consent: false }],
   });
-  expect((await POST(request({ templateName: "approved" }))).status).toBe(403);
+  expect((await POST(request())).status).toBe(403);
   mocks.load.mockResolvedValue(workspace());
   mocks.contact.mockResolvedValue({ optInStatus: "opted_out" });
-  expect((await POST(request({ templateName: "approved" }))).status).toBe(403);
+  expect((await POST(request())).status).toBe(403);
   expect(mocks.template).not.toHaveBeenCalled();
 });
-it("requires an approved template outside the matching phone's service window", async () => {
+it("sends the quotation PDF using the configured document template outside the service window", async () => {
   mocks.contact.mockResolvedValue({
     phoneNumber: customer.phone,
     serviceWindowExpiresAt: "2020-01-01",
   });
-  expect((await POST(request())).status).toBe(403);
-  expect((await POST(request({ templateName: "approved" }))).status).toBe(200);
-  expect(mocks.template.mock.calls[0][3]).toEqual([
+  expect((await POST(request())).status).toBe(200);
+  expect(mocks.template.mock.calls[0].slice(0, 5)).toEqual([
+    "919876543210", "quotation_document_v1", "en", "media1", "quotation-QT-1.pdf",
+  ]);
+  expect(mocks.template.mock.calls[0][5]).toEqual([
     { type: "text", text: "Client" },
     { type: "text", text: "QT-1" },
     { type: "text", text: "1200" },
   ]);
-  expect(mocks.render).not.toHaveBeenCalled();
+  expect(mocks.render).toHaveBeenCalledOnce();
+  expect(mocks.document).not.toHaveBeenCalled();
+});
+it("fails closed without a configured document template", async () => {
+  vi.stubEnv("WHATSAPP_QUOTE_TEMPLATE_NAME", "");
+  mocks.contact.mockResolvedValue({ phoneNumber: customer.phone, serviceWindowExpiresAt: "2020-01-01" });
+  expect((await POST(request())).status).toBe(503);
+  expect(mocks.upload).not.toHaveBeenCalled();
+});
+it("rejects client-selected template names", async () => {
+  expect((await POST(request({ templateName: "unapproved" }))).status).toBe(400);
+  expect(mocks.upload).not.toHaveBeenCalled();
 });
 it("blocks replay of unresolved or sent outbound messages", async () => {
   mocks.messages.mockResolvedValue([

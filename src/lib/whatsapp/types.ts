@@ -2,7 +2,7 @@ export type WhatsAppOptInStatus = 'opted_in' | 'opted_out' | 'pending' | 'unknow
 export type WhatsAppMessageDirection = 'outbound' | 'inbound';
 export type WhatsAppMessageType = 'document' | 'template' | 'text' | 'media';
 export type WhatsAppMessageStatus = 'pending' | 'sent' | 'delivered' | 'read' | 'failed' | 'unknown';
-export type FollowupStatus = 'scheduled' | 'sent' | 'skipped' | 'cancelled' | 'failed';
+export type FollowupStatus = 'scheduled' | 'sending' | 'sent' | 'skipped' | 'cancelled' | 'failed' | 'unknown';
 
 export interface WhatsAppContact {
   id: string;
@@ -37,6 +37,7 @@ export interface WhatsAppMessage {
   readAt?: string;
   mediaObjectKey?: string;
   pdfObjectKey?: string;
+  followupId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +54,10 @@ export interface QuotationFollowup {
   lastError?: string;
   skipReason?: string;
   bullJobId?: string;
+  claimToken?: string;
+  claimedAt?: string;
+  providerMessageId?: string;
+  deliveryStatus?: 'sent' | 'delivered' | 'read' | 'failed';
   createdAt: string;
   updatedAt: string;
 }

@@ -15,7 +15,7 @@ import { numberPDF } from "@/lib/documents/page-numbers";
 import {
   uploadMedia,
   sendDocumentMessage,
-  sendTemplateMessage,
+  sendDocumentTemplateMessage,
 } from "@/lib/whatsapp/service";
 import { isWhatsAppConfigured } from "@/lib/whatsapp/config";
 import {
@@ -32,7 +32,6 @@ const sendSchema = z
     quotationId: z.string().min(1).max(100),
     customerId: z.string().min(1).max(100),
     phoneNumber: z.string().min(1).max(30),
-    templateName: z.string().trim().min(1).max(512).optional(),
   })
   .strict();
 const normalizePhone = (phone: string) => phone.replace(/[\s()+-]/g, "");
@@ -80,10 +79,12 @@ export async function POST(request: Request) {
       !!contact &&
       normalizePhone(contact.phoneNumber) === phone &&
       new Date(contact.serviceWindowExpiresAt ?? "").getTime() > Date.now();
-    if (!windowOpen && !input.templateName)
+    const templateName = process.env.WHATSAPP_QUOTE_TEMPLATE_NAME?.trim();
+    const templateLanguage = process.env.WHATSAPP_QUOTE_TEMPLATE_LANGUAGE?.trim() || "en";
+    if (!windowOpen && !templateName)
       throw new APIError(
-        "The customer service window is closed. Use an approved template.",
-        403,
+        "The service window is closed and the quotation document template is not configured.",
+        503,
       );
     const existing = await getMessagesForQuotation(organizationId, quote.id);
     if (
@@ -104,27 +105,15 @@ export async function POST(request: Request) {
       );
       quote = workspace.records.find((r) => r.id === input.quotationId)!;
     }
-    const messageType = input.templateName ? "template" : "document";
-    let mediaId: string | undefined;
+    const messageType = windowOpen ? "document" : "template";
     const filename = `quotation-${quote.number ?? quote.id}.pdf`;
-    if (messageType === "document") {
-      registerDocumentFonts(path.join(process.cwd(), "public", "fonts"));
-      const bytes = await renderToBuffer(
-        FinancialDocument({
-          record: quote,
-          settings: workspace.settings,
-          customer,
-        }),
-      );
-      const numbered = await numberPDF(bytes);
-      mediaId = await uploadMedia(
-        Buffer.from(numbered),
-        filename,
-        "application/pdf",
-      );
-      if (!mediaId)
-        throw new APIError("Media upload returned no identifier.", 502);
-    }
+    registerDocumentFonts(path.join(process.cwd(), "public", "fonts"));
+    const bytes = await renderToBuffer(
+      FinancialDocument({ record: quote, settings: workspace.settings, customer }),
+    );
+    const numbered = await numberPDF(bytes);
+    const mediaId = await uploadMedia(Buffer.from(numbered), filename, "application/pdf");
+    if (!mediaId) throw new APIError("Media upload returned no identifier.", 502);
     // Persist intent first. A crash leaves a pending record that blocks blind retries.
     const message = await createMessage(organizationId, {
       quotationId: quote.id,
@@ -132,20 +121,20 @@ export async function POST(request: Request) {
       phoneNumber: phone,
       direction: "outbound",
       messageType,
-      templateName: input.templateName,
+      templateName: messageType === "template" ? templateName : undefined,
     });
     let providerMessageId: string;
     try {
       const result =
         messageType === "template"
-          ? await sendTemplateMessage(phone, input.templateName!, "en", [
+          ? await sendDocumentTemplateMessage(phone, templateName!, templateLanguage, mediaId, filename, [
               { type: "text", text: customer.name },
               { type: "text", text: quote.number ?? quote.id },
               { type: "text", text: documentTotal(quote) },
             ])
           : await sendDocumentMessage(
               phone,
-              mediaId!,
+              mediaId,
               `Quotation ${quote.number ?? quote.id}`,
               filename,
             );
