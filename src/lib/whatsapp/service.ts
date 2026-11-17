@@ -149,6 +149,51 @@ export async function sendTemplateMessage(
   return { providerMessageId: messages?.[0]?.id ?? "" };
 }
 
+export async function sendDocumentTemplateMessage(
+  to: string,
+  templateName: string,
+  languageCode: string,
+  mediaId: string,
+  filename: string,
+  parameters: Array<{ type: "text"; text: string }>,
+): Promise<{ providerMessageId: string }> {
+  const body = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: languageCode },
+      components: [
+        {
+          type: "header",
+          parameters: [{ type: "document", document: { id: mediaId, filename } }],
+        },
+        { type: "body", parameters },
+      ],
+    },
+  };
+  const response = await fetch(
+    `${whatsappConfig.baseUrl}/${whatsappConfig.phoneNumberId}/messages`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15000),
+      headers: buildHeaders(),
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new WhatsAppApiError(
+      data.error?.message ?? `Send document template failed with status ${response.status}`,
+      response.status,
+      data.error?.code,
+    );
+  }
+  return { providerMessageId: (data.messages as Array<{ id: string }> | undefined)?.[0]?.id ?? "" };
+}
+
 export async function markMessageAsRead(messageId: string): Promise<void> {
   const body = {
     messaging_product: "whatsapp",

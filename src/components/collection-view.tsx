@@ -516,6 +516,7 @@ export function CollectionView({
       {selected && (
         <RecordDetail
           record={selected}
+          inline={inlineDetails}
           onClose={() => setSelected(null)}
           onEdit={(r) => {
             setSelected(null);

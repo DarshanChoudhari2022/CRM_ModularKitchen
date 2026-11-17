@@ -45,6 +45,7 @@ function toMessage(row: Record<string, unknown>): WhatsAppMessage {
     readAt: row.read_at as string | undefined,
     mediaObjectKey: row.media_object_key as string | undefined,
     pdfObjectKey: row.pdf_object_key as string | undefined,
+    followupId: row.followup_id as string | undefined,
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -63,6 +64,10 @@ function toFollowup(row: Record<string, unknown>): QuotationFollowup {
     lastError: row.last_error as string | undefined,
     skipReason: row.skip_reason as string | undefined,
     bullJobId: row.bull_job_id as string | undefined,
+    claimToken: row.claim_token as string | undefined,
+    claimedAt: row.claimed_at as string | undefined,
+    providerMessageId: row.provider_message_id as string | undefined,
+    deliveryStatus: row.delivery_status as QuotationFollowup["deliveryStatus"],
     createdAt: String(row.created_at),
     updatedAt: String(row.updated_at),
   };
@@ -162,6 +167,7 @@ export async function createMessage(
     templateName?: string;
     pdfObjectKey?: string;
     mediaObjectKey?: string;
+    followupId?: string;
   },
 ): Promise<WhatsAppMessage> {
   const { data, error } = await admin()
@@ -177,6 +183,7 @@ export async function createMessage(
       status: "pending",
       pdf_object_key: input.pdfObjectKey,
       media_object_key: input.mediaObjectKey,
+      followup_id: input.followupId,
     })
     .select()
     .single();
@@ -301,6 +308,43 @@ export async function getDueFollowups(
     .limit(limit);
   if (error) throw new APIError(error.message, 500);
   return (data ?? []).map(toFollowup);
+}
+
+export async function claimDueFollowups(
+  organizationId: string,
+  limit = 3,
+): Promise<QuotationFollowup[]> {
+  const { data, error } = await admin().rpc("claim_quotation_followups", {
+    p_organization: organizationId,
+    p_limit: limit,
+  });
+  if (error) throw new APIError("Could not claim quotation follow-ups.", 503);
+  return (data ?? []).map(toFollowup);
+}
+
+export async function finishClaimedFollowup(
+  followup: QuotationFollowup,
+  status: "sent" | "skipped" | "failed" | "unknown",
+  details: { providerMessageId?: string; skipReason?: string; lastError?: string } = {},
+): Promise<void> {
+  const { data, error } = await admin()
+    .from("quotation_followups")
+    .update({
+      status,
+      completed_at: new Date().toISOString(),
+      provider_message_id: details.providerMessageId,
+      skip_reason: details.skipReason,
+      last_error: details.lastError,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", followup.id)
+    .eq("organization_id", followup.organizationId)
+    .eq("status", "sending")
+    .eq("claim_token", followup.claimToken!)
+    .select("id")
+    .maybeSingle();
+  if (error || !data)
+    throw new APIError("Follow-up outcome could not be saved. Reconcile before retry.", 503);
 }
 
 export async function updateFollowupStatus(

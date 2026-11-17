@@ -26,6 +26,7 @@ Copy `.env.example` to `.env.local` to configure a live workspace. Set `NEXT_PUB
 - Reports for receivables aging, source conversion, collections and planned purchases. CSV formula injection is neutralized on export.
 - Supabase private evidence upload/download, invite-only staff roles, authenticator enrollment, server-side membership verification, HttpOnly session cookies and transactional audit snapshots.
 - Explicit invoice reminder scheduling, transactional outbox, contact frequency reservation, quiet hours, current balance/permission/hold rechecks, Authkey WhatsApp adapter, unknown-send reconciliation and deduplication.
+- Meta WhatsApp quotation PDF submission, document-template delivery outside the service window, webhook status/inbound tracking, and a scheduled one-time follow-up. Live use requires the Meta account, approved templates, credentials, scheduler and pilot described in deployment instructions.
 - Signed Meta Lead Ads retrieval webhook; protected website and voice outcome intake. These require actual provider access and pilot validation.
 
 ## Live setup
@@ -62,6 +63,6 @@ The initial deployment is one business per staff user, up to 10,000 active busin
 - BOMs require explicit estimator quantities; this is not automatic cutting optimization, material nesting or full inventory valuation. Procurement tracks orders/receipts, not supplier accounts payable. Manufacturing/installation is milestone and task tracking.
 - Voice intake is an integration contract and agent brief, not a provisioned telephone agent. Real number routing, provider tools, real-time transfer, slot booking, language quality and lowest all-in cost must be tested. See [voice pilot](docs/voice-agent.md).
 - Authkey submission acknowledgement is not proof of delivery. An unrecognized response/timeout remains Unknown. Provider-specific inbound WhatsApp and delivery-status callback mapping are not enabled; reconcile using the console until that contract is verified.
-- No transactional email service, payment gateway settlement sync, WhatsApp quotation delivery, ad-spend sync, public customer portal/e-signature, automatic accounting export integration or Justdial API is provisioned. Manual PDFs/CSV and staff-reviewed evidence remain available. No payment screenshot is treated as cleared funds.
+- No transactional email service, payment gateway settlement sync, live WhatsApp account/template provisioning, ad-spend sync, public customer portal/e-signature, automatic accounting export integration or Justdial API is provisioned. Manual PDFs/CSV and staff-reviewed evidence remain available. No payment screenshot is treated as cleared funds.
 
 These boundaries are intentional visible setup work, not simulated integrations. Original planning references are in `docs/reference/`; implementation status is documented here.
