@@ -99,22 +99,22 @@ test("quotation calculation, immutable revision, acceptance, invoice and partial
   await expect(dialog).not.toBeVisible();
   await page.goto("/invoices");
   await page.getByRole("button", { name: /E2E Modular Kitchen/ }).click();
-  dialog = page.getByRole("dialog");
-  await dialog
+  const invoiceDetail = page.locator(".inline-document");
+  await invoiceDetail
     .getByRole("button", { name: "Issue invoice", exact: true })
     .click();
-  await expect(dialog.getByText("Issued", { exact: true })).toBeVisible();
-  await dialog
+  await expect(invoiceDetail.getByText("Issued", { exact: true })).toBeVisible();
+  await invoiceDetail
     .getByRole("button", { name: "Record payment", exact: true })
     .click();
-  await dialog.getByLabel("Amount (INR)", { exact: true }).fill("10000");
-  await dialog
+  await invoiceDetail.getByLabel("Amount (INR)", { exact: true }).fill("10000");
+  await invoiceDetail
     .getByLabel("Unique bank / payment reference")
     .fill("E2E-BANK-001");
-  await dialog.getByRole("button", { name: "Confirm action" }).click();
-  await expect(dialog.getByText("₹9,375.04", { exact: true })).toBeVisible();
+  await invoiceDetail.getByRole("button", { name: "Confirm action" }).click();
+  await expect(invoiceDetail.getByText("₹9,375.04", { exact: true })).toBeVisible();
   const download = page.waitForEvent("download");
-  await dialog.getByRole("button", { name: "Download PDF" }).click();
+  await invoiceDetail.getByRole("button", { name: "Download PDF" }).click();
   const pdf = await download;
   expect(pdf.suggestedFilename()).toMatch(/\.pdf$/);
   expect(await pdf.failure()).toBeNull();
@@ -248,6 +248,7 @@ test("mobile navigation and screenshots have no horizontal overflow", async ({
     fullPage: true,
   });
   await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("link", { name: "Invoices", exact: true }).click();
   await page.getByRole("link", { name: "Quotations", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Quotations", exact: true }),
